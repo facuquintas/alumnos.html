@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🏆 Mis Puntos - MarketPoints</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        .header {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .header h1 { color: #333; font-size: 1.5em; margin-bottom: 5px; }
+        .header p { color: #666; }
+        .sync-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.8em;
+            margin-top: 10px;
+        }
+        .sync-badge.online { background: #d4edda; color: #155724; }
+        .sync-badge.offline { background: #f8d7da; color: #721c24; }
+        .course-selector {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+        .course-btn {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            margin-bottom: 10px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 1.1em;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .course-btn:hover, .course-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        .student-card {
+            background: white;
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 15px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .student-card:hover { transform: translateY(-3px); }
+        .student-card.selected {
+            border: 3px solid #667eea;
+        }
+        .wallet {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: center;
+            margin: 15px 0;
+        }
+        .wallet-amount { font-size: 3em; font-weight: bold; }
+        .wallet-label { font-size: 1.1em; opacity: 0.9; }
+        .badge {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        .badge-gold { background: #ffd700; color: #333; }
+        .badge-silver { background: #c0c0c0; color: #333; }
+        .badge-bronze { background: #cd7f32; color: white; }
+        .history {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .history-item {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .history-item.positive { color: #11998e; }
+        .history-item.negative { color: #eb3349; }
+        .rank {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 15px;
+            text-align: center;
+            margin-top: 15px;
+        }
+        .rank-number { font-size: 2em; font-weight: bold; }
+        .benefits-list {
+            margin-top: 20px;
+        }
+        .benefit-item {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .benefit-cost {
+            background: #667eea;
+            color: white;
+            padding: 5px 12px;
+            border-radius: 15px;
+            font-weight: bold;
+        }
+        .can-afford { border-color: #11998e; background: #e8f5e9; }
+        .cannot-afford { opacity: 0.6; }
+        .back-btn {
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            margin-bottom: 15px;
+            font-size: 1em;
+        }
+        .hidden { display: none !important; }
+        @media (max-width: 600px) {
+            body { padding: 10px; }
+            .wallet-amount { font-size: 2.5em; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏆 Mis Puntos</h1>
+            <p id="schoolInfo">Cargando...</p>
+            <div class="sync-badge online" id="syncBadge">🟢 Actualizando en tiempo real</div>
+        </div>
+
+        <!-- Selección de curso -->
+        <div id="courseView">
+            <div class="course-selector">
+                <h3 style="margin-bottom: 15px; color: #333;">📚 Seleccioná tu curso</h3>
+                <div id="courseList"></div>
+            </div>
+        </div>
+
+        <!-- Selección de alumno -->
+        <div id="studentView" class="hidden">
+            <button class="back-btn" onclick="backToCourses()">← Volver a cursos</button>
+            <div class="course-selector">
+                <h3 style="margin-bottom: 15px; color: #333;">👤 Seleccioná tu nombre</h3>
+                <div id="studentList"></div>
+            </div>
+        </div>
+
+        <!-- Vista del alumno -->
+        <div id="profileView" class="hidden">
+            <button class="back-btn" onclick="backToStudents()">← Volver</button>
+            
+            <div class="student-card selected">
+                <h2 id="studentName" style="text-align: center; color: #333;"></h2>
+                <div id="studentBadge"></div>
+                
+                <div class="wallet">
+                    <div class="wallet-amount" id="pointsDisplay">0</div>
+                    <div class="wallet-label">puntos</div>
+                </div>
+                
+                <div class="rank">
+                    <div class="rank-number" id="rankDisplay">-</div>
+                    <div>de <span id="totalStudents">0</span> alumnos</div>
+                </div>
+            </div>
+
+            <div class="student-card">
+                <h3 style="color: #333; margin-bottom: 15px;">📜 Historial</h3>
+                <div class="history" id="historyList">
+                    <p style="color: #999; text-align: center;">Sin movimientos</p>
+                </div>
+            </div>
+
+            <div class="student-card">
+                <h3 style="color: #333; margin-bottom: 15px;">🛒 Beneficios disponibles</h3>
+                <div class="benefits-list" id="benefitsList">
+                    <p style="color: #999; text-align: center;">Cargando...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== CONFIGURACIÓN - MISMA URL QUE EL PROFESOR ====================
+        const FIREBASE_URL = 'https://TU-PROYECTO.firebaseio.com';
+        
+        const app = firebase.initializeApp({ databaseURL: FIREBASE_URL });
+        const db = firebase.database();
+
+        let courses = [];
+        let students = {};
+        let benefits = [];
+        let currentCourseId = null;
+        let currentStudentId = null;
+
+        // Cargar datos
+        function loadData() {
+            db.ref('courses').on('value', snap => {
+                const data = snap.val();
+                courses = data ? Object.entries(data).map(([id,c]) => ({...c,id})) : [];
+                renderCourses();
+            });
+            
+            db.ref('students').on('value', snap => {
+                students = snap.val() || {};
+                if (currentCourseId && currentStudentId) {
+                    renderProfile();
+                } else if (currentCourseId) {
+                    renderStudents();
+                }
+            });
+            
+            db.ref('benefits').on('value', snap => {
+                const data = snap.val();
+                benefits = data ? Object.values(data) : [];
+                if (currentStudentId) renderBenefits();
+            });
+            
+            db.ref('config').on('value', snap => {
+                const data = snap.val();
+                if (data) {
+                    document.getElementById('schoolInfo').textContent = `${data.schoolName} - ${data.teacherName}`;
+                }
+            });
+        }
+
+        function renderCourses() {
+            const container = document.getElementById('courseList');
+            if (!courses.length) {
+                container.innerHTML = '<p style="color:#999;text-align:center;">No hay cursos disponibles</p>';
+                return;
+            }
+            container.innerHTML = courses.map(c => `
+                <button class="course-btn" onclick="selectCourse('${c.id}')">
+                    📚 ${c.name}
+                </button>
+            `).join('');
+        }
+
+        function selectCourse(id) {
+            currentCourseId = id;
+            document.getElementById('courseView').classList.add('hidden');
+            document.getElementById('studentView').classList.remove('hidden');
+            renderStudents();
+        }
+
+        function backToCourses() {
+            currentCourseId = null;
+            currentStudentId = null;
+            document.getElementById('studentView').classList.add('hidden');
+            document.getElementById('profileView').classList.add('hidden');
+            document.getElementById('courseView').classList.remove('hidden');
+        }
+
+        function renderStudents() {
+            const container = document.getElementById('studentList');
+            const list = students[currentCourseId] || [];
+            
+            if (!list.length) {
+                container.innerHTML = '<p style="color:#999;text-align:center;">No hay alumnos en este curso</p>';
+                return;
+            }
+            
+            // Ordenar por nombre
+            const sorted = [...list].sort((a,b) => a.name.localeCompare(b.name));
+            
+            container.innerHTML = sorted.map(s => `
+                <button class="course-btn" onclick="selectStudent(${s.id})" style="text-align: left;">
+                    👤 ${s.name} <span style="float: right; color: #667eea;">${s.points} pts</span>
+                </button>
+            `).join('');
+        }
+
+        function selectStudent(id) {
+            currentStudentId = id;
+            document.getElementById('studentView').classList.add('hidden');
+            document.getElementById('profileView').classList.remove('hidden');
+            renderProfile();
+        }
+
+        function backToStudents() {
+            currentStudentId = null;
+            document.getElementById('profileView').classList.add('hidden');
+            document.getElementById('studentView').classList.remove('hidden');
+        }
+
+        function renderProfile() {
+            const list = students[currentCourseId] || [];
+            const student = list.find(s => s.id === currentStudentId);
+            if (!student) return;
+            
+            // Nombre
+            document.getElementById('studentName').textContent = student.name;
+            
+            // Badge
+            const badgeEl = document.getElementById('studentBadge');
+            if (student.points >= 100) {
+                badgeEl.innerHTML = '<span class="badge badge-gold">🥇 Nivel Oro</span>';
+            } else if (student.points >= 50) {
+                badgeEl.innerHTML = '<span class="badge badge-silver">🥈 Nivel Plata</span>';
+            } else if (student.points >= 25) {
+                badgeEl.innerHTML = '<span class="badge badge-bronze">🥉 Nivel Bronce</span>';
+            } else {
+                badgeEl.innerHTML = '';
+            }
+            
+            // Puntos
+            document.getElementById('pointsDisplay').textContent = student.points;
+            
+            // Ranking
+            const sorted = [...list].sort((a,b) => b.points - a.points);
+            const rank = sorted.findIndex(s => s.id === currentStudentId) + 1;
+            document.getElementById('rankDisplay').textContent = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : `#${rank}`;
+            document.getElementById('totalStudents').textContent = list.length;
+            
+            // Historial
+            const historyEl = document.getElementById('historyList');
+            if (student.history && student.history.length) {
+                historyEl.innerHTML = [...student.history].reverse().map(h => `
+                    <div class="history-item ${h.points > 0 ? 'positive' : 'negative'}">
+                        <div>
+                            <div style="font-weight: 600;">${h.concept}</div>
+                            <div style="font-size: 0.85em; color: #999;">${h.date}</div>
+                        </div>
+                        <div style="font-size: 1.2em; font-weight: bold;">${h.points > 0 ? '+' : ''}${h.points}</div>
+                    </div>
+                `).join('');
+            } else {
+                historyEl.innerHTML = '<p style="color: #999; text-align: center;">Sin movimientos aún</p>';
+            }
+            
+            renderBenefits();
+        }
+
+        function renderBenefits() {
+            const list = students[currentCourseId] || [];
+            const student = list.find(s => s.id === currentStudentId);
+            if (!student) return;
+            
+            const container = document.getElementById('benefitsList');
+            
+            if (!benefits.length) {
+                container.innerHTML = '<p style="color: #999; text-align: center;">No hay beneficios configurados</p>';
+                return;
+            }
+            
+            container.innerHTML = benefits.map(b => {
+                const canAfford = student.points >= b.cost;
+                return `
+                    <div class="benefit-item ${canAfford ? 'can-afford' : 'cannot-afford'}">
+                        <div>
+                            <div style="font-weight: 600;">${b.name}</div>
+                            <div style="font-size: 0.85em; color: #666;">${b.desc}</div>
+                        </div>
+                        <span class="benefit-cost">${b.cost} pts</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Iniciar
+        document.addEventListener('DOMContentLoaded', loadData);
+    </script>
+</body>
+</html>
